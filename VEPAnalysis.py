@@ -5,6 +5,8 @@ import matplotlib.pyplot as py
 import numpy as np
 from rys_10_20 import rys
 from collections import defaultdict
+import csv
+import os.path
 
 class VEPAnalysis(object):
 	def __init__(self, signal_ind, signal_group, fs):
@@ -42,11 +44,25 @@ class VEPAnalysis(object):
 		signal_group_mean = defaultdict(dict)
 		for channel in self.channels:
 			for condition in self.signal_ind[channel].keys():
-				signal_ind_mean[channel][condition] = [np.mean(self.signal_ind[channel][condition], axis=0),np.var(self.signal_ind[channel][condition], axis=0)/len(self.signal_ind[channel][condition])] 
-				signal_group_mean[channel][condition] = [np.mean(self.signal_group[channel][condition], axis=0),np.var(self.signal_group[channel][condition], axis=0)/len(self.signal_group[channel][condition])] 
+				signal_ind_mean[channel][condition] = [np.mean(self.signal_ind[channel][condition], axis=0),np.var(self.signal_ind[channel][condition], axis=0)/(len(self.signal_ind[channel][condition])-1)] 
+				signal_group_mean[channel][condition] = [np.mean(self.signal_group[channel][condition], axis=0),np.var(self.signal_group[channel][condition], axis=0)/(len(self.signal_group[channel][condition])-1)] 
 		return signal_ind_mean, signal_group_mean
 
-	def find_p300_n100(self, channel):
+	def _write_to_file(self, erp_dict, name):
+		if not os.path.isfile(name):
+			with open(name, 'wb') as f:
+				w = csv.writer(f)
+				for k,v in erp_dict.iteritems():
+					for k1,v1 in v.iteritems():
+						w.writerow([k,k1,v1[0],v1[1]])
+		else:
+			with open(name, 'a') as f:
+				w = csv.writer(f)
+				for k,v in erp_dict.iteritems():
+					for k1,v1 in v.iteritems():
+						w.writerow([k,k1,v1[0],v1[1]])
+
+	def find_p300_n100(self, channel, write_to_file):
 		p300 = defaultdict(dict)
 		n100 = defaultdict(dict)
 		p300_ind,n100_ind = self._find_veps_amplitude(channel, self.signal_ind_mean)
@@ -54,6 +70,9 @@ class VEPAnalysis(object):
 		for condition in self.conditions:
 			p300[condition] = {'individual':p300_ind[condition],'group':p300_group[condition]}
 			n100[condition] = {'individual':n100_ind[condition],'group':n100_group[condition]}
+		if write_to_file:
+			name = 'p300_'+channel+'.csv'
+			self._write_to_file(p300,name)
 		return p300,n100
 
 	def _find_veps_amplitude(self, channel, signal):
@@ -78,17 +97,21 @@ class VEPAnalysis(object):
 			for i in xrange(len(ids)):
 				if i != 0:
 					if (ids[i-1][0] == 'min' and ids[i][0] == 'max'):
-						amps.append([abs(signal[channel][condition][0][ids[i][1]]-signal[channel][condition][0][ids[i-1][1]]),
-								    signal[channel][condition][1][ids[i][1]]+signal[channel][condition][1][ids[i-1][1]]])
+						if (ids[i][1] < 380 and ids[i][1] > 250 and ids[i-1][1] > 100):
+							amps.append([abs(signal[channel][condition][0][ids[i][1]]-signal[channel][condition][0][ids[i-1][1]]),
+									    signal[channel][condition][1][ids[i][1]]+signal[channel][condition][1][ids[i-1][1]]])
 					if (ids[i-1][0] == 'max' and ids[i][0] == 'min'):
-						if (ids[i][1] < 250 and ids[i-1][1] > 40):
+						if (ids[i][1] < 300 and ids[i-1][1] > 100):
 							amps_N1.append([abs(signal[channel][condition][0][ids[i][1]]-signal[channel][condition][0][ids[i-1][1]]),
 								    signal[channel][condition][1][ids[i][1]]+signal[channel][condition][1][ids[i-1][1]]])
-			max_id = np.array(amps).argmax(axis=0)[0]
-			P3_amplitudes[condition] = amps[max_id]
-			max_id_n1 = np.array(amps_N1).argmax(axis=0)[0]
-			print ('******************************',condition, amps_N1[max_id_n2])
-			N1_amplitudes[condition] = amps_N1[max_id_n2]
+			try:
+				max_id = np.array(amps).argmax(axis=0)[0]
+				P3_amplitudes[condition] = amps[max_id]
+			except ValueError:
+				P3_amplitudes[condition] = [0,0]
+			# max_id_n1 = np.array(amps_N1).argmax(axis=0)[0]
+			print ('******************************',condition,P3_amplitudes[condition])
+			# N1_amplitudes[condition] = amps_N1[max_id_n1]
 			py.show()
 
 		return P3_amplitudes, N1_amplitudes
@@ -101,21 +124,21 @@ class VEPAnalysis(object):
 				rys_go = rys(mode+' trials')
 				for ch in channels:
 					r1 = rys_go[ch].plot(t, signal[ch]['compatible-'+mode]['individual'][0], 'r')
-					rys_go[ch].fill_between(t, signal[ch]['compatible-'+mode]['individual'][0]+signal[ch]['compatible-'+mode]['individual'][1],
-											   signal[ch]['compatible-'+mode]['individual'][0]-signal[ch]['compatible-'+mode]['individual'][1],
-											   facecolor='r', alpha=0.5)
+					# rys_go[ch].fill_between(t, signal[ch]['compatible-'+mode]['individual'][0]+signal[ch]['compatible-'+mode]['individual'][1],
+					# 						   signal[ch]['compatible-'+mode]['individual'][0]-signal[ch]['compatible-'+mode]['individual'][1],
+					# 						   facecolor='r', alpha=0.5)
 					r2 = rys_go[ch].plot(t, signal[ch]['compatible-'+mode]['group'][0], 'g')
-					rys_go[ch].fill_between(t, signal[ch]['compatible-'+mode]['group'][0]+signal[ch]['compatible-'+mode]['group'][1],
-											   signal[ch]['compatible-'+mode]['group'][0]-signal[ch]['compatible-'+mode]['group'][1],
-											   facecolor='g', alpha=0.5)
+					# rys_go[ch].fill_between(t, signal[ch]['compatible-'+mode]['group'][0]+signal[ch]['compatible-'+mode]['group'][1],
+					# 						   signal[ch]['compatible-'+mode]['group'][0]-signal[ch]['compatible-'+mode]['group'][1],
+					# 						   facecolor='g', alpha=0.5)
 					r3 = rys_go[ch].plot(t, signal[ch]['incompatible-'+mode]['individual'][0], 'c')
-					rys_go[ch].fill_between(t, signal[ch]['incompatible-'+mode]['individual'][0]+signal[ch]['incompatible-'+mode]['individual'][1],
-											   signal[ch]['incompatible-'+mode]['individual'][0]-signal[ch]['incompatible-'+mode]['individual'][1],
-											   facecolor='c', alpha=0.5)
+					# rys_go[ch].fill_between(t, signal[ch]['incompatible-'+mode]['individual'][0]+signal[ch]['incompatible-'+mode]['individual'][1],
+					# 						   signal[ch]['incompatible-'+mode]['individual'][0]-signal[ch]['incompatible-'+mode]['individual'][1],
+					# 						   facecolor='c', alpha=0.5)
 					r4 = rys_go[ch].plot(t, signal[ch]['incompatible-'+mode]['group'][0], 'm')
-					rys_go[ch].fill_between(t, signal[ch]['incompatible-'+mode]['group'][0]+signal[ch]['incompatible-'+mode]['group'][1],
-											   signal[ch]['incompatible-'+mode]['group'][0]-signal[ch]['incompatible-'+mode]['group'][1],
-											   facecolor='m', alpha=0.5)
+					# rys_go[ch].fill_between(t, signal[ch]['incompatible-'+mode]['group'][0]+signal[ch]['incompatible-'+mode]['group'][1],
+					# 						   signal[ch]['incompatible-'+mode]['group'][0]-signal[ch]['incompatible-'+mode]['group'][1],
+					# 						   facecolor='m', alpha=0.5)
 					for r in [r1, r2]:
 						py.setp(r,linewidth=2)
 					rys_go[ch].set_xlim(0,0.6)
@@ -131,21 +154,21 @@ class VEPAnalysis(object):
 				fig = py.figure()
 				py.title(mode+' trials')
 				r1 = py.plot(t, signal[channels]['compatible-'+mode]['individual'][0], 'r', label='Individual Compatible')
-				py.fill_between(t, signal[channels]['compatible-'+mode]['individual'][0]+signal[channels]['compatible-'+mode]['individual'][1],
-								signal[channels]['compatible-'+mode]['individual'][0]-signal[channels]['compatible-'+mode]['individual'][1],
-								facecolor='r', alpha=0.5)
+				# py.fill_between(t, signal[channels]['compatible-'+mode]['individual'][0]+signal[channels]['compatible-'+mode]['individual'][1],
+				# 				signal[channels]['compatible-'+mode]['individual'][0]-signal[channels]['compatible-'+mode]['individual'][1],
+				# 				facecolor='r', alpha=0.5)
 				r2 = py.plot(t, signal[channels]['compatible-'+mode]['group'][0], 'g', label='Group Compatible')
-				py.fill_between(t, signal[channels]['compatible-'+mode]['group'][0]+signal[channels]['compatible-'+mode]['group'][1],
-								signal[channels]['compatible-'+mode]['group'][0]-signal[channels]['compatible-'+mode]['group'][1],
-								facecolor='g', alpha=0.5)
+				# py.fill_between(t, signal[channels]['compatible-'+mode]['group'][0]+signal[channels]['compatible-'+mode]['group'][1],
+				# 				signal[channels]['compatible-'+mode]['group'][0]-signal[channels]['compatible-'+mode]['group'][1],
+				# 				facecolor='g', alpha=0.5)
 				r3 = py.plot(t, signal[channels]['incompatible-'+mode]['individual'][0], 'c', label='Individual Incompatible')
-				py.fill_between(t, signal[channels]['incompatible-'+mode]['individual'][0]+signal[channels]['incompatible-'+mode]['individual'][1],
-								signal[channels]['incompatible-'+mode]['individual'][0]-signal[channels]['incompatible-'+mode]['individual'][1],
-								facecolor='c', alpha=0.5)
+				# py.fill_between(t, signal[channels]['incompatible-'+mode]['individual'][0]+signal[channels]['incompatible-'+mode]['individual'][1],
+				# 				signal[channels]['incompatible-'+mode]['individual'][0]-signal[channels]['incompatible-'+mode]['individual'][1],
+				# 				facecolor='c', alpha=0.5)
 				r4 = py.plot(t, signal[channels]['incompatible-'+mode]['group'][0], 'm', label='Group Incompatible')
-				py.fill_between(t, signal[channels]['incompatible-'+mode]['group'][0]+signal[channels]['incompatible-'+mode]['group'][1],
-								signal[channels]['incompatible-'+mode]['group'][0]-signal[channels]['incompatible-'+mode]['group'][1],
-								facecolor='m', alpha=0.5)
+				# py.fill_between(t, signal[channels]['incompatible-'+mode]['group'][0]+signal[channels]['incompatible-'+mode]['group'][1],
+				# 				signal[channels]['incompatible-'+mode]['group'][0]-signal[channels]['incompatible-'+mode]['group'][1],
+				# 				facecolor='m', alpha=0.5)
 				for r in [r1, r2]:
 					py.setp(r,linewidth=2)
 				py.xlim(0,0.6)
