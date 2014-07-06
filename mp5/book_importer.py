@@ -30,7 +30,8 @@ class BookImporter(object):
 		f = open(book_file,'rb')
 		data, signals, atoms, epoch_s = self._read_book(f)
 		self.epoch_s = epoch_s
-		self.a = atoms
+		self.atoms = atoms
+		self.signals = signals
 		self.fs = data[5]['Fs']
 		self.ptspmV = 0.0715
 		self.id_min = id_min
@@ -40,18 +41,18 @@ class BookImporter(object):
 		self.atom_min = atom_min
 		self.atom_max = atom_max
 
-		# self.draw_reconstructed_signal(atoms, signals)
+		# self.draw_reconstructed_signal()
 		# self.draw_mean_reconstructed_signal(atoms, signals)
 
-		amps = self.get_atoms_amplitudes(atoms)
-		self.amps = amps
+		# amps = self._get_atoms_amplitudes()
 		# self.perform_linear_regression(amps)
+
 		t, f, E_a, sigt, signal_a, signal_reconstruction_a,alpha_mean = self.calculate_mean_map(atoms, signals, df = 0.2, dt = 0.008, f_a = [2, 20])
 		self.alpha = alpha_mean
 
-		t, f, E_a = self.calculate_map(atoms[1],signals[1][0][1], df = 0.2, dt = 0.008, f_a = [2, 20])
+		# t, f, E_a,sigt, signal_a, signal_reconstruction_a = self.calculate_map(self.atoms[2],self.signals[1][1][1], df = 0.2, dt = 0.008, f_a = [2, 20])
 
-		self.only_draw_map(t, f, E_a, sigt, signal_a, signal_reconstruction_a)
+		# self.only_draw_map(t, f, E_a, sigt, signal_a, signal_reconstruction_a)
 
 		py.show()
 
@@ -174,10 +175,10 @@ class BookImporter(object):
 			ct = self._get_type(ident, f)
 		return data, signals, atoms, epoch_s
 
-	def get_atoms_amplitudes(self, atoms):
+	def _get_atoms_amplitudes(self):
 		amps = []
-		for i,trial in enumerate(atoms.keys()):
-			for i,atom in enumerate(atoms[trial][13]):
+		for trial in self.atoms.keys():
+			for i,atom in enumerate(self.atoms[trial][13]):
 				position  = atom['t']/self.fs
 				width     = atom['scale']/self.fs/2
 				frequency = atom['f']*self.fs/2
@@ -209,24 +210,24 @@ class BookImporter(object):
 		py.plot(t,signal_reconstruction_a,color='g',label='rekonstrukcja')
 		py.plot(t,signal_a,color='m',label='sygnal')
 		# py.ylim(-30,40)
-		py.ylabel('amplituda [uV]')
-		py.xlabel('czas [s]')
+		py.ylabel('Amplituda [uV]')
+		py.xlabel('Czas [s]')
 		py.axvline(x=0.3,color='r')
 		py.legend()
 
-	def draw_reconstructed_signal(self, atoms, signals):
-		tpr = len(signals[1][0][1])
+	def draw_reconstructed_signal(self):
+		tpr = len(self.signals[1][0][1])
 		t = np.arange(0, tpr/self.fs, 1/self.fs)
-		for i,trial in enumerate(atoms.keys()):
+		for i,trial in enumerate(self.atoms.keys()):
 			if i in xrange(self.id_min, self.id_max+1):
-				signal_reconstruction = self.reconstruct_signal_freq(atoms[trial])
-				signal = signals[1][i][1]
+				signal_reconstruction = self.reconstruct_signal_freq(self.atoms[trial])
+				signal = self.signals[1][i][1]
 				py.figure('Trial '+str(i))
 				py.plot(t,signal_reconstruction,color='g',label='rekonstrukcja')
 				py.plot(t,signal,color='m',label='sygnal')
 				py.axvline(x=0.3,color='r')
-				py.ylabel('amplituda [uV]')
-				py.xlabel('czas [s]')
+				py.ylabel('Amplituda [uV]')
+				py.xlabel('Czas [s]')
 				py.ylim(-30,40)
 				py.legend()
 
@@ -234,7 +235,7 @@ class BookImporter(object):
 		reconstruction = np.zeros(self.epoch_s)
 		for i,atom in enumerate(atoms[13]):
 			position  = atom['t']/self.fs
-			width     = atom['scale']/self.fs/2
+			width     = atom['scale']/self.fs
 			frequency = atom['f']*self.fs/2
 			amplitude = atom['amplitude']
 			phase 	  = atom['phase']
@@ -250,33 +251,33 @@ class BookImporter(object):
 		line = w[0]*y+w[1]
 		py.figure()
 		py.plot(y,line,'r-',y,amps,'o')
-		py.ylabel('amplituda [uV]')
-		py.xlabel('realizacje')
+		py.ylabel('Amplituda [uV]')
+		py.xlabel('Realizacje')
 
 ################ rysowanie mapy
 # 8 Hz < f < 12 Hz
 # a > 5 µV
 # s > 1.5 s
 
-	def calculate_mean_map(self,atoms, signals, df = 0.05, dt = 1/256., f_a = [0, 64.]):
-		N = len(atoms.keys())
+	def calculate_mean_map(self,df = 0.05, dt = 1/256., f_a = [0, 64.]):
+		N = len(self.atoms.keys())
 		tpr = len(signals[1][0][1])
 		sigt = np.arange(0, tpr/self.fs, 1/self.fs)
 		alpha_mean = []
-		for nr, chnl in enumerate(atoms.keys()):
-			t, f, E = self.calculate_map(atoms[chnl],signals[1][nr][1], df, dt,  f_a = f_a)
-			E_mean = self._calculate_alpha_power(atoms[chnl],signals[1][nr][1], df, dt,  f_a = f_a)
+		for nr, chnl in enumerate(self.atoms.keys()):
+			t, f, E, sigt_s,s_s,sr_s = self.calculate_map(self.atoms[chnl],self.signals[1][nr][1], df, dt,  f_a = f_a)
+			E_mean = self._calculate_alpha_power(self.atoms[chnl],self.signals[1][nr][1], df, dt,  f_a = f_a)
 			alpha_mean.append(E_mean)
-			signal_reconstruction = self._reconstruct_signal(atoms[chnl])
-			signal = signals[1][nr][1]
+			signal_reconstruction = self._reconstruct_signal(self.atoms[chnl])
+			signal = self.signals[1][nr][1]
 			try:
 				signal_a += signal
-				E_a += np.log(E)
+				E_a += E
 				signal_recontruction_a += signal_reconstruction
 			except Exception as a:
-				print(a, 'objection')
+				print(a)
 				signal_a = signal
-				E_a = np.log(E)
+				E_a = E
 				signal_recontruction_a = signal_reconstruction
 		signal_a /= N
 		signal_recontruction_a /= N
@@ -312,7 +313,8 @@ class BookImporter(object):
 		for atom in atoms[10]:
 			amp =  atom['modulus']**2*(atom['amplitude']/self.ptspmV)**2
 			E[int(lent*atom['t']/tpr)] +=  amp	
-		return t, f, np.log(E) 
+		signal_reconstruction = self._reconstruct_signal(atoms)
+		return t, f, np.log(E), sigt, signal, signal_reconstruction
 
 	def _calculate_alpha_power(self,atoms,signal, df, dt, contour=0, f_a = [0, 64.]):
 		tpr = len(signal)
@@ -325,7 +327,7 @@ class BookImporter(object):
 		sigt = np.arange(0, tpr/self.fs, 1/self.fs)
 		for atom in atoms[13]:
 			freq = atom['f']*self.fs/2
-			amp = atom['amplitude']/self.ptspmV
+			amp = 2*atom['amplitude']/self.ptspmV
 			scale = atom['scale']/self.fs
 			position = atom['t']/self.fs
 			if 8 < freq < 12 and position < 0.5:
@@ -336,11 +338,11 @@ class BookImporter(object):
 				E += atom['modulus']**2 * wigners
 		return np.mean(np.mean(E))
 
-	def only_draw_map(self,t, f, E_a, sigt, signal_a, signal_recontruction_a, contour=False):
+	def only_draw_map(self, t, f, E_a, sigt, signal_a, signal_recontruction_a, contour=False):
 		fig = py.figure()
 		gs = gridspec.GridSpec(2,1, height_ratios=[3,1])
 		ax1 = fig.add_subplot(gs[0])
-		ax1.set_ylabel(u'Frequency [Hz]')
+		ax1.set_ylabel(u'Czestosc [Hz]')
 		ax1.set_title(sys.argv[-1])
 		if contour:
 			ax1.contour(t, f, E_a)
@@ -349,10 +351,10 @@ class BookImporter(object):
 		ax2 = fig.add_subplot(gs[1])
 		ax2.plot(sigt, signal_a, 'red')
 		ax2.plot(sigt, signal_recontruction_a, 'blue')
-		ax2.set_ylabel(u'Amplitude, [$\\mu$V]')
-		ax2.set_xlabel(u'Time [s]')
+		ax2.set_ylabel(u'Amplituda, [$\\mu$V]')
+		ax2.set_xlabel(u'Czas [s]')
 
-	def _reconstruct_signal(self,atoms, normalized = False):
+	def _reconstruct_signal(self, atoms, normalized=False):
 		reconstruction = np.zeros(self.epoch_s)
 		for atom in atoms[13]:
 			position  = atom['t']/self.fs
@@ -368,12 +370,12 @@ class BookImporter(object):
 		return reconstruction
 
 
-
 if __name__ == '__main__':
 
-	# fstr = './wybrane/MMP1_compatible_ind_go_mmp.b'
+	fstr = './wybrane/MMP1_compatible_ind_go_mmp.b'
 	# fstr = './wybrane/MMP2_compatible_ind_go_mmp.b'
 	# fstr = './wybrane/MMP3_compatible_ind_go_mmp.b'
 
-	fstr = './wybrane/MMP1_compatible_ind_go_longer_mmp.b'
-	b = BookImporter(fstr, id_min=0, id_max=20, t_min=0, t_max=1, atom_min=0, atom_max=20)
+	# fstr = './wybrane/MMP1_compatible_ind_go_longer_mmp_vprev.b'
+
+	b = BookImporter(fstr, id_min=1, id_max=10, t_min=0, t_max=1, atom_min=0, atom_max=0)
