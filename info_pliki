@@ -44,7 +44,7 @@
 
 './badania_part5'
 
-'33_K_RB_01','33_K_R_01','34_M_LB_01','34_M_L_01',			<- 33,36 - brak; 34 -> brak xml lub zły format
+'33_K_RB_01','33_K_R_01','34_M_LB_01','34_M_L_01',			<- 33 - brak; 34 -> brak xml lub zły format
 '35_K_RB_01','35_K_R_01','36_K_LB_01','36_K_L_01'
 
 '33_K_RB_01_2014_Mar_12_1101','33_K_R_01_2014_Mar_12_1046','33_K_RB_01_2014_Mar_12_1101','34_M_L_01_2014_Mar_12_1114',
@@ -55,12 +55,5 @@
 - inne montaże
 - grand average
 - alfa, beta
+- uwagi jarka
 
-P300
-no-go: individual < group
-23
-32 
-28
-11
-25
-9

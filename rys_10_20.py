@@ -8,7 +8,7 @@ import numpy as np
 def rys(tytul =  ''): 
     lab =  ['Fp1', 'Fpz', 'Fp2','F7', 'F3', 'Fz', 'F4','F8', 'T3' ,'C3', 'Cz', 'C4', 'T4', 'T5', 'P3', 'Pz','P4', 'T6', 'O1', 'O2', 'Oz', 'legend']
     #plt.ion()
-    f = plt.figure()
+    f = plt.figure(figsize=(14,10))
     plt.suptitle(tytul, fontsize = 15)
     axis =  []
     index = 0

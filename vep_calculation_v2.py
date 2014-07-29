@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
-# from posturograph import *
 from obci.analysis.obci_signal_processing import read_manager 
 from obci.analysis.obci_signal_processing.tags import tags_file_reader as TFR
 
@@ -9,14 +8,18 @@ import matplotlib.pyplot as py
 import numpy as np
 from rys_10_20 import rys
 import os.path, ast
-from scipy.signal import filtfilt, cheby2, butter, resample
+from scipy.signal import filtfilt, cheby2, butter, resample, decimate
 import random
 from collections import defaultdict
 import csv
+import glob
+import cPickle as pickle
 from VEPAnalysis import *
+from TFAnalysis import *
+from MPDataSerialization import *
 
 class VisualEvokedPotentials(object):
-	def __init__(self, file_path, f_name_ind, f_name_group, rts_ind, rts_group, get_rts=0):
+	def __init__(self,file_path,f_name_ind,f_name_group,rts_ind=None,rts_group=None,get_rts=0):
 		"""
 		format zwracanych danych frags['O1']['compatible-go'][[1024],[1024],[1024],...]
 		warunki ['compatible-go','compatible-no-go','incompatible-go','incompatible-no-go']
@@ -56,13 +59,12 @@ class VisualEvokedPotentials(object):
 	def _filter_signal(self, signal):
 		sig_f = []
 		fn = self.fs/2.
-		# b,a = cheby2(1, 10, 0.5/fn, btype = "highpass")
-		# b,a = butter(2, np.array([49,51])/fn, btype = "bandstop")
-		# d,c = butter(2, 0.1/fn, btype = "highpass")
-		d,c = butter(2, np.array([1,12])/fn, btype = "bandpass")
+		# d,c = cheby2(1, 10, 0.1/fn, btype = "highpass")
+		# d,c = butter(2, 0.1/fn, btype="highpass")
+		d,c = butter(2, np.array([0.1,12])/fn, btype="bandpass")
 		for i in xrange(len(signal)):
 			# sig_f.append(filtfilt(b,a,filtfilt(d, c, signal[i])))
-			sig_f.append(filtfilt(d, c, signal[i]))
+			sig_f.append(filtfilt(d,c,signal[i]))
 		return sig_f
 
 	def _get_timestamps(self, tag_file):
@@ -147,7 +149,8 @@ class VisualEvokedPotentials(object):
 			sig[i] = sig[i]*float(pointsPerMikroV[i])
 			for key in stim.keys():
 				for j in stim[key]:
-					frags[channels[i]][key].append(sig[i][j:j+int(self.fs)]-np.mean(sig[i][j-int(0.1*self.fs):j+int(self.fs)]))
+					# frags[channels[i]][key].append(sig[i][j:j+int(self.fs)]-np.mean(sig[i][j-int(0.1*self.fs):j+int(self.fs)]))
+					frags[channels[i]][key].append(sig[i][j-int(self.fs/2):j+int(self.fs)]-np.mean(sig[i][j-int(0.1*self.fs):j]))
 		frags.pop('A1', None)
 		frags.pop('A2', None)
 		frags = self._normalize_keys(frags)
@@ -191,11 +194,17 @@ class VisualEvokedPotentials(object):
 		for tag in tags:
 			if tag['name'] in rts and str(tag['desc']['key']) != 'None':
 				if isinstance(tag['desc']['key'], basestring) and tag['desc']['key'] == proper_key:
-					rts[tag['name']].append(float(tag['desc']['response_time']))
+					try:
+						rts[tag['name']].append(float(tag['desc']['response_time']))
+					except KeyError:
+						rts[tag['name']].append(float(tag['desc']['response__time']))
 				else:
 					try:
 						k = ast.literal_eval(tag['desc']['key'])
-						rt = ast.literal_eval(tag['desc']['response_time'])
+						try:
+							rt = ast.literal_eval(tag['desc']['response_time'])
+						except KeyError:
+							rt = ast.literal_eval(tag['desc']['response__time'])
 						ids = [i for i,j in enumerate(k) if j == proper_key]
 						rts[tag['name']].append(float(rt[ids[0]]))
 					except (TypeError, ValueError) as e:
@@ -213,36 +222,137 @@ class VisualEvokedPotentials(object):
 			with open(csv_file, 'a') as f:
 				csv.writer(f).writerows([k,] + v for k, v in mean_rts.iteritems())
 
-if __name__ == '__main__':
-	path = './badania_part3/'
-	rts_group = './RTs_group.csv'
-	rts_ind = './RTs_ind.csv'
-	f_list_group = ['15_K_RB_01']
-	f_list_ind = ['15_K_R_01']
-	# f_list_group = ['28_K_LB_01','23_K_RB_01','32_K_LB_01','11_K_RB_01','09_M_RB_01','25_K_RB_01','18_K_LB_01']
-	# f_list_ind = ['28_K_L_01','23_K_R_01','32_K_L_01','11_K_R_01','09_M_R_01','25_K_R_01','18_K_L_01']
+def get_files(condition):
+	'''
+	condition    --str    - right, left, all, poster
+	'''
+	if condition == 'all':
+		all_files = glob.glob(path+'*.raw')
+		group_files = glob.glob(path+'*B*.raw')
+		ind_files = list(set(all_files)-set(group_files))
+		f_list_group = [os.path.splitext(os.path.basename(f))[0] for f in group_files]
+		f_list_ind = [os.path.splitext(os.path.basename(f))[0] for f in ind_files]
+	elif condition == 'right':
+		group_files = glob.glob(path+'*RB*.raw')
+		ind_files = glob.glob(path+'*R_*.raw')
+		f_list_group = [os.path.splitext(os.path.basename(f))[0] for f in group_files]
+		f_list_ind = [os.path.splitext(os.path.basename(f))[0] for f in ind_files]
+	elif condition == 'left':
+		group_files = glob.glob(path+'*LB*.raw')
+		ind_files = glob.glob(path+'*L_*.raw')
+		f_list_group = [os.path.splitext(os.path.basename(f))[0] for f in group_files]
+		f_list_ind = [os.path.splitext(os.path.basename(f))[0] for f in ind_files]
+	elif condition == 'poster':
+		f_list_group = ['28_K_LB_01','23_K_RB_01','32_K_LB_01','11_K_RB_01','09_M_RB_01','25_K_RB_01','18_K_LB_01','15_K_RB_01','30_M_LB_01']
+		f_list_ind = ['28_K_L_01','23_K_R_01','32_K_L_01','11_K_R_01','09_M_R_01','25_K_R_01','18_K_L_01','15_K_R_01','30_M_L_01']
+	return f_list_group,f_list_ind
 
-	if len(f_list_group) == 1:
-		vep = VisualEvokedPotentials(path,f_list_ind[0],f_list_group[0],rts_ind,rts_group,get_rts=0)
+def compute_grand_average(path,f_list_group,f_list_ind,rts_group,rts_ind):
+	grand_av = defaultdict(dict)
+
+	mp_ind = []
+	mp_gr = []
+	electrode = 'Cz'
+	for i in xrange(len(f_list_ind)):
+		vep = VisualEvokedPotentials(path,f_list_ind[i],f_list_group[i],rts_ind,rts_group,get_rts=0)
 		v = VEPAnalysis(vep.frags_ind,vep.frags_group,vep.fs)
-		v.draw_VEPs(v.channels,v.signal)
-	else:
-		grand_av = defaultdict(dict)
-		for i in xrange(len(f_list_ind)):
-			vep = VisualEvokedPotentials(path,f_list_ind[i],f_list_group[i],rts_ind,rts_group,get_rts=0)
-			v = VEPAnalysis(vep.frags_ind,vep.frags_group,vep.fs)
-			if i == 0:
-				for j in v.signal.keys():
-					for k in v.signal[j].keys():
-						grand_av[j][k] = {'individual': [], 'group': []}
+		for c in ['Fp1','Fpz','Fp2','C3','C4','Cz','P3','P4','Pz','F3','Fz','F4','O1','Oz','O2']:
+			# n = v.find_VEPs_amplitudes(c,write_to_file=0,vep='N1')
+			p = v.find_VEPs_amplitudes(c,write_to_file=1,vep='P3')
+			# p = v.find_VEPs_amplitudes(c,write_to_file=0,vep='P1')
+		if i == 0:
 			for j in v.signal.keys():
 				for k in v.signal[j].keys():
-					grand_av[j][k]['individual'].append(v.signal[j][k]['individual'])
-					grand_av[j][k]['group'].append(v.signal[j][k]['group'])
-		for j in grand_av.keys():
-			for k in grand_av[j].keys():
-				for l in grand_av[j][k].keys():
-					grand_av[j][k][l] = np.mean(grand_av[j][k][l],axis=0)
-		v.draw_VEPs(v.channels,grand_av)
-	# p,n = v.find_p300_n100('Oz')
+					grand_av[j][k] = {'individual':[], 'group':[]}
+		for j in v.signal.keys():
+			for k in v.signal[j].keys():
+				grand_av[j][k]['individual'].append(v.signal[j][k]['individual'])
+				grand_av[j][k]['group'].append(v.signal[j][k]['group'])
+		mp_ind.append(decimate(v.signal[electrode]['compatible-no-go']['individual'][0],4))	
+		mp_ind.append(decimate(v.signal[electrode]['incompatible-no-go']['individual'][0],4))	
+		mp_gr.append(decimate(v.signal[electrode]['compatible-no-go']['group'][0],4))
+		mp_gr.append(decimate(v.signal[electrode]['incompatible-no-go']['group'][0],4))	
+	
+	length = len(decimate(v.signal[electrode]['compatible-no-go']['individual'][0],4))
+	x_group = np.zeros([length,len(mp_gr)], dtype='<f')
+	x_individual = np.zeros([length,len(mp_ind)], dtype='<f')
 
+	#### write data for mp decomposition - group vs individual
+	for i in xrange(len(mp_ind)):
+		x_individual[:,i] = mp_ind[i]
+		x_group[:,i] = mp_gr[i]
+	with open('MMP1_MEANS_INDIVIDUAL.dat','wb') as f:
+		x_individual.tofile(f)
+	with open('MMP1_MEANS_GROUP.dat','wb') as f:
+		x_group.tofile(f)
+	return x_individual, x_group
+	####
+	# for j in grand_av.keys():
+	# 	for k in grand_av[j].keys():
+	# 		for l in grand_av[j][k].keys():
+	# 			grand_av[j][k][l] = np.mean(grand_av[j][k][l],axis=0)
+	# v.draw_VEPs(v.channels,grand_av)
+
+def compute_tf_statistics(path,f_list_group,f_list_ind,tf_type):
+	ch = 'Cz'
+	tf_maps = defaultdict(dict)
+	for i in xrange(len(f_list_ind)):
+		vep = VisualEvokedPotentials(path,f_list_ind[i],f_list_group[i])
+		tf = TFAnalysis(vep.frags_ind,vep.frags_group,vep.fs)
+		if tf_type == 'scalogram':
+			tf_map,f,t,extent = tf.compute_scalogram(ch)
+		elif tf_type == 'spectrogram':
+			tf_map,f,t,extent = tf.compute_specgram(ch)
+		for c in tf_map[ch].keys():
+			for mode in tf_map[ch][c].keys():
+				try:
+					tf_maps[c][mode].append(tf_map[ch][c][mode])
+				except KeyError:
+					tf_maps[c][mode] = list()
+					tf_maps[c][mode].append(tf_map[ch][c][mode])
+	stats_map = tf.compute_statistic(tf_maps,f,t,'compatible-no-go')
+	a = np.zeros(stats_map.shape)
+	for (i,j),p in np.ndenumerate(stats_map):
+		if p < 0.05:
+			a[i,j] = p
+	py.figure()
+	py.imshow(a,aspect='auto',origin='lower',extent=extent)
+	py.colorbar()
+	py.ylim(0.1,30)
+	py.show()
+	return stats_map
+
+if __name__ == '__main__':
+	path = './badania/'
+	rts_group = './RTs_group_all.csv'
+	rts_ind = './RTs_ind_all.csv'
+
+	f_list_group = ['11_K_RB_01','28_K_LB_01']
+	f_list_ind = ['11_K_R_01','28_K_L_01']
+
+	f_list_group,f_list_ind = get_files('all')
+
+	if len(f_list_group) == 1:
+		vep = VisualEvokedPotentials(path,f_list_ind[0],f_list_group[0],rts_ind,rts_group,get_rts=1)
+		v = VEPAnalysis(vep.frags_ind,vep.frags_group,vep.fs)	
+#########
+		# tf = TFAnalysis(vep.frags_ind,vep.frags_group,vep.fs)
+		# tf_maps,f,t = tf.compute_specgram('Pz')
+		# tf.plot_tf_maps(tf_maps['Pz']['compatible-go']['individual'],f,t)
+
+		# tf_maps,f,t = tf.compute_scalogram('Cz')
+		# tf.compute_statistic(tf_maps,f,t,'compatible-go')	## poprawić!!!
+#########
+		l = len(v.signal_group['Cz']['compatible-no-go'])
+		print(l)
+		mp = MPDataSerialization(vep.frags_group, vep.fs, 'compatible-no-go')
+		# x = mp.write_binary_MMP1_averaged_trials('./mp5/wybrane/newMP/Cz/MMP1_compatible_group_nogo_longer.dat',trials=80,channel='Cz',averaged_nr=1)
+		print(x.shape)
+#########
+		# v.draw_VEPs(v.channels,v.signal)
+		# for c in ['C3','C4','Cz','P3','P4','Pz','F3','Fz','F4','O1','Oz','O2']:
+		# 	p = v.find_VEPs_amplitudes(c,write_to_file=0,vep='P1')
+	else:
+		x_individual, x_group = compute_grand_average(path,f_list_group,f_list_ind,rts_group,rts_ind)
+		print(x_individual.shape,x_group.shape)
+		# stats_map = compute_tf_statistics(path,f_list_group,f_list_ind,tf_type='spectrogram')

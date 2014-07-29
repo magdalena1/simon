@@ -4,15 +4,13 @@
 from obci.analysis.obci_signal_processing import read_manager 
 from obci.analysis.obci_signal_processing.tags import tags_file_reader as TFR
 
-import scipy.stats as stats
+# import scipy.stats as stats
 import matplotlib.pyplot as py
 import numpy as np
 from rys_10_20 import rys
-from collections import defaultdict
 import os.path, ast
 from scipy.signal import filtfilt, cheby2, butter, resample
 import random
-from itertools import groupby
 
 def _get_timestamps(tag_file, condition):
 	proper_key = _get_proper_key(condition)
@@ -44,10 +42,11 @@ def _get_timestamps(tag_file, condition):
 						times[c].append(float(tag['start_timestamp']))				
 	return times
 
-def cut_fragments(file_name, condition):
+def cut_fragments(file_name):
 	'''
 	format zwracanych danych frags['O1']['blue-right'][[1024],[1024],[1024],...]
 	'''
+	condition = get_current_condition(file_name)
 	mgr = read_manager.ReadManager(file_name+'.xml',
 								   file_name+'.raw',
 								   file_name+'.tag')
@@ -73,7 +72,7 @@ def cut_fragments(file_name, condition):
 				frags_ch[channels[i]][key].append(sig[i][j:j+int(fs)]-np.mean(sig[i][j-int(0.1*fs):j+int(fs)]))
 	frags_ch.pop('A1', None)
 	frags_ch.pop('A2', None)
-	return frags_ch,fs
+	return frags_ch, fs
 
 def _get_proper_key(condition):
 	if condition == 'blue':
@@ -94,21 +93,16 @@ def get_RTs(file_name):
 	tags = reader.get_tags()
 	for tag in tags:
 		if tag['name'] in rts and str(tag['desc']['key']) != 'None':
-			# print '##############', tag['name'], tag['desc']['key']
 			if isinstance(tag['desc']['key'], basestring) and tag['desc']['key'] == proper_key:
-				# print '----------------',tag['desc']['key'],tag['desc']['response_time']
 				rts[tag['name']].append(float(tag['desc']['response_time']))
 			else:
-				# print '&&&&&&&&&&&',tag['desc']['key'],tag['desc']['response_time']
 				try:
 					k = ast.literal_eval(tag['desc']['key'])
 					rt = ast.literal_eval(tag['desc']['response_time'])
 					ids = [i for i,j in enumerate(k) if j == proper_key]
 					rts[tag['name']].append(float(rt[ids[0]]))
-					# print '***************', float(rt[ids[0]])
 				except (TypeError, ValueError) as e:
 					print e,' occured in ', file_name
-					# print tag['desc']['key'], tag['desc']['response_time'] 		
 	mean_rts = _compute_mean_RTs(rts)
 	return mean_rts
 
@@ -157,81 +151,13 @@ def _reject_outliers(data, m=8.):
 	new_data = [data[i] for i,j in enumerate(norm_data) if j<m]
 	return new_data
 
-def get_current_condition(f_name):
+def get_current_condition(file_name):
 	f = os.path.basename(file_name).split('_')
 	return 'blue' if f[2].lower() == 'r' or f[2].lower() == 'rb' else 'green'
 
-def downsample_signal(sig, channels, trials, condition, factor = 8):
-	new_sig = np.zeros([128,23,trials])
-	for i,ch in enumerate(channels):
-		for k in xrange(trials):
-			n = []
-			for s in xrange(1024):
-				if s%factor==0:
-					n.append(frags[ch][condition][k][s])
-			new_sig[:,i,k] = n
-	return new_sig
-
-def write_binary_multitrial_ERP(file_name, frags, channels, condition, trials, pointsPerMikroV):
-	x = np.zeros([1024,23,trials], dtype='>f')
-	x = downsample_signal(frags, channels, trials, condition)
-	with open(file_name,'wb') as f:
-		for k in xrange(trials):
-			for s in xrange(128):
-				for i,ch in enumerate(channels):
-					f.write(x[s,i,k])
-	print 'Multitrial, downsampled ERP ',x.shape
-	return x
-
-def write_binary_MMP1_trials(file_name, frags, condition, trials, pointsPerMikroV):
-	''' 
-		funkcja zapisująca binarnie kolejne triale 
-	'''
-	x = np.zeros([1024,trials], dtype='<f')
-	for k in xrange(trials):
-		x[:,k] = frags['Pz'][0][0][condition][k]
-	with open(file_name,'wb') as f:
-		x.tofile(f)
-	return x
-
-def write_binary_MMP1_mean_trials(file_name, frags, condition, trials, averaged_nr, pointsPerMikroV):
-	''' 
-		funkcja uśredniająca kolejne 'averaged_nr' powtórzeń i zapisująca je w formie binarnej
-	'''
-	x = np.zeros([1024,trials/averaged_nr], dtype='<f')
-	mean_x = []
-	means = []
-	i = 0
-	for k in xrange(trials+1):
-		mean_x.append(frags['Pz'][condition][k])
-		if k%averaged_nr == 0:
-			if k != 0:
-				x[:,i] = np.mean(mean_x, axis=0)
-				i += 1
-				mean_x = []
-	x = x*pointsPerMikroV
-	with open(file_name,'wb') as f:
-		x.tofile(f)
-	return x
-
-def write_binary_averaged_ERP(file_name, frags, channels, condition):
-	x = np.zeros([23,90,1024], dtype='<f')
-	for i,ch in enumerate(channels):
-		x[i]=frags[ch][condition]
-	mean_sig = np.mean(x, axis=1)
-	
-	mean_sig = mean_sig.T
-	
-	# with open(file_name,'wb') as f:
-	# 	mean_sig.tofile(f)
-
-	### zapisuje wymiar (1024,23)
-	print 'Mean ERP ',mean_sig.shape
-	return mean_sig
-
-def plotting(frags, frags_group, ch, mode, fs):
-	# proper_key = _get_proper_key(condition)
-	# other_key = 'left' if condition == 'blue' else 'right'
+def plotting(frags, frags_group,condition, ch, mode, fs):
+	proper_key = _get_proper_key(condition)
+	other_key = 'left' if condition == 'blue' else 'right'
 
 	# if mode == 'no-go':
 	# 	condition = 'green' if condition == 'blue' else 'blue'
@@ -329,36 +255,7 @@ def estimate_mean_variance(frags, channel, fs):
 		frags_mean[c] = [np.mean(frags[channel][c], axis=0),np.var(frags[channel][c], axis=0)/len(frags[channel][c])] 
 	return frags_mean
 
-if __name__ == "__main__":
-
-	channels = [u'Fp1',u'Fpz',u'Fp2',u'F7',u'F3',u'Fz',u'F4',u'F8',u'T3',u'C3',u'Cz',u'C4',u'T4',u'T5', 
-		  u'P3', u'Pz', u'P4', u'T6', u'O1', u'Oz', u'O2']
-
-	# f_list_ind = ['22_K_L_01']
-	# f_list_group = ['22_K_LB_01']
-
-	# f_list_group = ['13_K_RB_01','14_K_LB_01',
-	# 			  	'17_K_RB_01','18_K_LB_01',
-	# 				'19_M_RB_01','20_K_LB_01',
-	# 				'21_K_RB_01',
-	# 				'23_K_RB_01','24_K_LB_01']
-	# f_list_ind = ['13_K_R_01','14_K_L_01',
-	# 			  '17_K_R_01','18_K_L_01',
-	# 			  '19_M_R_01','20_K_L_01',
-	# 			  '21_K_R_01',
-	# 			  '23_K_R_01','24_K_L_01']
-
-	f_list_group=['13_K_RB_01',
-				  	# '17_K_RB_01']
-					'19_M_RB_01']
-					# '21_K_RB_01']
-					# '23_K_RB_01']
-	f_list_ind = ['13_K_R_01',
-				  # '17_K_R_01']
-				  '19_M_R_01']
-				  # '21_K_R_01']
-				  # '23_K_R_01']
-
+def compute_grand_average(f_list_group, f_list_ind):
 	keys = ['compatible-go','compatible-no-go','incompatible-go','incompatible-no-go']
 	compatible = []
 	incompatible = []
@@ -367,7 +264,6 @@ if __name__ == "__main__":
 	for k in keys:
 		inds[k] = []
 		groups[k] = []
-
 	for i in xrange(len(f_list_group)):
 		file_name = './badania_part3/' + f_list_ind[i]
 		file_name_group = './badania_part3/' + f_list_group[i]
@@ -388,13 +284,11 @@ if __name__ == "__main__":
 	# print 'Compatible: ', np.mean(compatible,0)
 	# print 'incompatible: ', np.mean(incompatible,0)
 
-
-		frags, fs = cut_fragments(file_name, condition)
-		frags_group, fs = cut_fragments(file_name_group, condition)
+		frags, fs = cut_fragments(file_name)
+		frags_group, fs = cut_fragments(file_name_group)
 
 		ind = estimate_mean_variance(frags, 'Cz', fs)
 		group = estimate_mean_variance(frags_group, 'Cz', fs)
-
 		for j in ind.keys():
 			if j == condition+'-'+proper_key:
 				inds['compatible-go'].append(ind[j])
@@ -408,18 +302,32 @@ if __name__ == "__main__":
 			elif j == other_condition+'-'+other_key:
 				inds['incompatible-no-go'].append(ind[j])
 				groups['incompatible-no-go'].append(group[j])
-
 	f_ind = {}
 	f_gr = {}
 	for k in inds.keys():
 		f_ind[k] = np.mean(inds[k],axis=0)
 		f_gr[k] = np.mean(groups[k],axis=0)
-
 	plotting(f_ind, f_gr, 'Cz', 'no-go', fs)
 	plotting(f_ind, f_gr, 'Cz', 'go', fs)
 
-		# plotting(frags, frags_group, condition, channels, 'no-go', fs)
-		# plotting(frags, frags_group, condition, channels, 'go', fs)
+
+if __name__ == "__main__":
+
+	channels = [u'Fp1',u'Fpz',u'Fp2',u'F7',u'F3',u'Fz',u'F4',u'F8',u'T3',u'C3',u'Cz',u'C4',u'T4',u'T5', 
+		  u'P3', u'Pz', u'P4', u'T6', u'O1', u'Oz', u'O2']
+
+	path = './badania_part3/'
+	f_list_group = ['21_K_RB_01']
+	f_list_ind = ['21_K_R_01']
+
+	# compute_grand_average(f_list_group, f_list_ind)
+
+	for i in xrange(len(f_list_ind)):
+		condition = get_current_condition(f_list_ind[i])
+		frags,fs = cut_fragments(path+f_list_ind[i])
+		frags_group,fs = cut_fragments(path+f_list_group[i])
+		plotting(frags, frags_group, condition, channels, 'no-go', fs)
+		plotting(frags, frags_group, condition, channels, 'go', fs)
 
 
 

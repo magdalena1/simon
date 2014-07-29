@@ -70,8 +70,8 @@ def tag_writer(fs, dioda, csvfile, file_name):
 	csv_params = read_csv(csvfile)
 	blinks = find_blinking_dioda(dioda/dioda.max(),fs)
 	writer = tags_writer.TagsFileWriter(file_name+'.tag')
-	print file_name,len(csv_params),len(blinks)
-	for i in xrange(len(blinks)):
+	# print file_name,len(csv_params),len(blinks)
+	for i in xrange(len(csv_params)):
 		tag = tag_utils.pack_tag_to_dict(blinks[i]/fs, blinks[i]/fs+0.75, 
 										 csv_params[i]['color']+'-'+csv_params[i]['position'], {
 										'response_time': csv_params[i]['response_time'],
@@ -81,12 +81,13 @@ def tag_writer(fs, dioda, csvfile, file_name):
 	writer.finish_saving(0.0)
 
 if __name__ == "__main__":
-	f_list = []
-	csv_list = []
+	f_list = ['36_K_LB_01','36_K_L_01']
+	csv_list = ['35_K_RB_01_2014_Mar_12_1214','36_K_L_01_2014_Mar_12_1226']
+	path = './badania_part5/'
 
 	for i,f in enumerate(f_list):
-		file_name = './badania_part3/'+f
-		csvfile = './badania_part3/'+csv_list[i]+'.csv'
+		file_name = path+f
+		csvfile = path+csv_list[i]+'.csv'
 		mgr = read_manager.ReadManager(file_name+'.xml',
 								   		file_name+'.raw',
 								   		file_name+'.tag')
