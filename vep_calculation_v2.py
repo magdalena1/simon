@@ -61,7 +61,7 @@ class VisualEvokedPotentials(object):
 		fn = self.fs/2.
 		# d,c = cheby2(1, 10, 0.1/fn, btype = "highpass")
 		# d,c = butter(2, 0.1/fn, btype="highpass")
-		d,c = butter(2, np.array([0.1,12])/fn, btype="bandpass")
+		d,c = butter(2, np.array([1,30])/fn, btype="bandpass")
 		for i in xrange(len(signal)):
 			# sig_f.append(filtfilt(b,a,filtfilt(d, c, signal[i])))
 			sig_f.append(filtfilt(d,c,signal[i]))
@@ -258,7 +258,7 @@ def compute_grand_average(path,f_list_group,f_list_ind,rts_group,rts_ind):
 		v = VEPAnalysis(vep.frags_ind,vep.frags_group,vep.fs)
 		for c in ['Fp1','Fpz','Fp2','C3','C4','Cz','P3','P4','Pz','F3','Fz','F4','O1','Oz','O2']:
 			# n = v.find_VEPs_amplitudes(c,write_to_file=0,vep='N1')
-			p = v.find_VEPs_amplitudes(c,write_to_file=1,vep='P3')
+			p = v.find_VEPs_amplitudes(c,write_to_file=0,vep='P3')
 			# p = v.find_VEPs_amplitudes(c,write_to_file=0,vep='P1')
 		if i == 0:
 			for j in v.signal.keys():
@@ -281,9 +281,9 @@ def compute_grand_average(path,f_list_group,f_list_ind,rts_group,rts_ind):
 	for i in xrange(len(mp_ind)):
 		x_individual[:,i] = mp_ind[i]
 		x_group[:,i] = mp_gr[i]
-	with open('MMP1_MEANS_INDIVIDUAL.dat','wb') as f:
+	with open('MMP1_MEANS_INDIVIDUAL_FILT.dat','wb') as f:
 		x_individual.tofile(f)
-	with open('MMP1_MEANS_GROUP.dat','wb') as f:
+	with open('MMP1_MEANS_GROUP_FILT.dat','wb') as f:
 		x_group.tofile(f)
 	return x_individual, x_group
 	####

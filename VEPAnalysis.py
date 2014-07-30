@@ -87,7 +87,7 @@ class VEPAnalysis(object):
 						w.writerow([k,k1,v1[0]])
 
 	def find_VEPs_amplitudes(self,channel,write_to_file,vep):
-		path = './csv/poster/'
+		path = './csv/improved/'
 		if vep in (['P3','P300']):
 			p300 = defaultdict(dict)
 			p300_ind = self._find_P3_amplitude(channel,self.signal_ind_mean)
@@ -266,31 +266,3 @@ class VEPAnalysis(object):
 				py.xlim(0,0.6)
 				py.legend()
 		py.show()
-
-	# def _find_N1_amplitude(self,channel,signal):
-	# ''' 
-	# returns peak-to-peak value
-	# '''
-	# 	N1_amplitudes = defaultdict(dict)
-	# 	for condition in self.conditions:
-	# 		ids = self._find_extrema(channel,signal,condition)
-	# 		amps = []
-	# 		for i in xrange(len(ids)):
-	# 			if (ids[i-1][0] == 'max' and ids[i][0] == 'min'):
-	# 				if (ids[i-1][1] < 220 and ids[i-1][1] > 100):
-	# 					amps.append([abs(signal[channel][condition][0][ids[i][1]]-signal[channel][condition][0][ids[i-1][1]]),
-	# 					    	 signal[channel][condition][1][ids[i][1]]+signal[channel][condition][1][ids[i-1][1]]])
-	# 		if len(amps):
-	# 			P3_amplitudes[condition] = amps
-	# 		else:
-	# 			P3_amplitudes[condition] = [0]
-	# 		try:
-	# 			max_id = np.array(amps).argmax(axis=0)[0]
-	# 			P3_amplitudes[condition] = amps[max_id]
-	# 		except ValueError:
-	# 			P3_amplitudes[condition] = [0,0]
-	# 		# max_id_n1 = np.array(amps_N1).argmax(axis=0)[0]
-	# 		# print ('******************************',condition,P3_amplitudes[condition])
-	# 		# N1_amplitudes[condition] = amps_N1[max_id_n1]
-	# 		# py.show()
-	# 	return P3_amplitudes, N1_amplitudes

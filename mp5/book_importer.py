@@ -42,14 +42,15 @@ class BookImporter(object):
 		self.atom_min = atom_min
 		self.atom_max = atom_max
 
-		amps = self._get_atoms_peak2peak_amplitudes()
+		# amps = self._get_atoms_peak2peak_amplitudes()
 		
 		# self.draw_reconstructed_signal()
-		# self.draw_mean_reconstructed_signal(atoms, signals)
+		self.draw_mean_reconstructed_signal(atoms, signals)
 
 		# amps = self._get_atoms_amplitudes()
-		self.amps = amps
+		# self.amps = amps
 		# print(np.median(amps))
+		# print(amps[:10])
 		# self.perform_linear_regression(amps)
 
 		# t, f, E_a, sigt, signal_a, signal_reconstruction_a, alpha_mean = self.calculate_mean_map(df = 0.2, dt = 0.008, f_a = [2, 20])
@@ -256,12 +257,14 @@ class BookImporter(object):
 		signal_a /= N
 		signal_reconstruction_a /= N
 		py.figure('Mean')
+		t = np.linspace(-0.5, 1, tpr)
 		py.plot(t,signal_reconstruction_a,color='g',label='rekonstrukcja')
-		py.plot(t,signal_a,color='m',label='sygnal')
-		# py.ylim(-30,40)
-		py.ylabel('Amplituda [uV]')
-		py.xlabel('Czas [s]')
-		py.axvline(x=0.8,color='r')
+		py.plot(t,signal_a,color='m',label=u'sygnał')
+		# py.ylim(-15,20)
+		py.xlim(-0.5,1)
+		py.ylabel(u'Amplituda [$\\mu$V]')
+		py.xlabel(u'Czas [s]')
+		py.axvline(x=0,color='r')
 		# py.axvline(x=0.3,color='r')
 		py.legend()
 
@@ -279,10 +282,10 @@ class BookImporter(object):
 				py.plot(t,signal_reconstruction,color='g',label='rekonstrukcja')
 				py.plot(t,signal,color='m',label='sygnal')
 				# py.axvline(x=0.3,color='r')
-				py.axvline(x=0.3,color='r')
-				py.ylabel('Amplituda [uV]')
-				py.xlabel('Czas [s]')
-				# py.ylim(-30,40)
+				py.axvline(x=0,color='r')
+				py.ylabel(u'Amplituda [$\\mu$V]')
+				py.xlabel(u'Czas [s]')
+				py.ylim(-30,40)
 				py.xlim(-0.5,1)
 				py.legend()
 
@@ -308,7 +311,7 @@ class BookImporter(object):
 		py.figure()
 		py.plot(y,line,'r-',y,amps,'o')
 		py.ylim(-5,22)
-		py.ylabel('Amplituda [uV]')
+		py.ylabel(u'Amplituda [$\\mu$V]')
 		py.xlabel('Realizacje')
 
 ################ rysowanie mapy
@@ -413,6 +416,7 @@ class BookImporter(object):
 		return np.abs(reconstruction)**2
 
 	def only_draw_map(self, t, f, E_a, sigt, signal_a, signal_recontruction_a, contour=False):
+		# tp = np.linspace(-0.5, 1, 10)
 		fig = py.figure()
 		gs = gridspec.GridSpec(2,1, height_ratios=[3,1])
 		ax1 = fig.add_subplot(gs[0])
@@ -422,11 +426,12 @@ class BookImporter(object):
 			ax1.contour(t, f, E_a)
 		else:
 			ax1.pcolor(t, f, E_a)
+		# ax1.set_xticklabels(tp)
 		ax2 = fig.add_subplot(gs[1])
 		ax2.plot(sigt, signal_a, 'red')
 		ax2.plot(sigt, signal_recontruction_a, 'blue')
 		ax2.axvline(x=0,color='r')
-		ax2.set_ylabel(u'Amplituda, [$\\mu$V]')
+		ax2.set_ylabel(u'Amplituda [$\\mu$V]')
 		ax2.set_xlabel(u'Czas [s]')
 		ax2.set_xlim(-0.5,1)
 
@@ -454,39 +459,51 @@ if __name__ == '__main__':
 
 	# fstr = './wybrane/MMP1_compatible_ind_go_longer_mmp.b'
 
-	fstr = './wybrane/newMP/Cz/MEANS/MMP3_MEANS_GROUP_mmp.b'
-	b = BookImporter(fstr, id_min=0, id_max=20, t_min=0, t_max=1.5, atom_min=0, atom_max=0)
-	ampsg = b.amps
+	###### dekompozycja średnich wszystkich badanych 
+	# fstr = './wybrane/newMP/Cz/MEANS/FILT/MMP3_MEANS_GROUP_FILT_mmp.b'
+	# b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=0, atom_max=0)
+	# ampsg = b.amps
 
-	fstr = './wybrane/newMP/Cz/MEANS/MMP3_MEANS_INDIVIDUAL_mmp.b'
-	b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=0, atom_max=1)
-	ampsi = b.amps
-
+	# fstr = './wybrane/newMP/Cz/MEANS/FILT/MMP3_MEANS_INDIVIDUAL_FILT_mmp.b'
+	# b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=0, atom_max=0)
+	# ampsi = b.amps
+	# print(stats.ranksums(ampsg,ampsi)[1])
+	
+	###### pojedyncze amplitudy + alpha
 	# fstr = './wybrane/newMP/Cz/MMP1_compatible_ind_nogo_longer_mmp.b'
-	# b = BookImporter(fstr, id_min=0, id_max=1, t_min=0.5, t_max=1, atom_min=0, atom_max=2)
+	# b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=2, atom_max=2)
 	# ind_comp = b.amps
 	# ind_c_alpha = b.alpha_mean
 	# fstr = './wybrane/newMP/Cz/MMP1_incompatible_ind_nogo_longer_mmp.b'
-	# b = BookImporter(fstr, id_min=10, id_max=20, t_min=0.5, t_max=1, atom_min=0, atom_max=2)
+	# b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=2, atom_max=2)
 	# ind_incomp = b.amps
-	# # ind_inc_alpha = b.alpha_mean
+	# ind_inc_alpha = b.alpha_mean
 
 	# ind = ind_comp + ind_incomp
-	# # ind_alp = ind_c_alpha + ind_inc_alpha
+	# ind_alp = ind_c_alpha + ind_inc_alpha
 
 	# fstr = './wybrane/newMP/Cz/MMP1_incompatible_group_nogo_longer_mmp.b'
-	# b = BookImporter(fstr, id_min=0, id_max=1, t_min=0.5, t_max=1, atom_min=0, atom_max=2)
+	# b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=1, atom_max=1)
 	# gr_comp = b.amps
-	# # gr_c_alpha = b.alpha_mean
+	# gr_c_alpha = b.alpha_mean
 	# fstr = './wybrane/newMP/Cz/MMP1_compatible_group_nogo_longer_mmp.b'
-	# b = BookImporter(fstr, id_min=10, id_max=20, t_min=0.5, t_max=1, atom_min=0, atom_max=2)
+	# b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=1, atom_max=1)
 	# gr_incomp = b.amps
-	# # gr_inc_alpha = b.alpha_mean
+	# gr_inc_alpha = b.alpha_mean
 
 	# gr = gr_incomp + gr_comp
-	# # gr_alp = gr_inc_alpha + gr_c_alpha
+	# gr_alp = gr_inc_alpha + gr_c_alpha
 
-	# # print(pearsonr(gr_comp,gr_c_alpha))
+	# # # print(pearsonr(gr_comp,gr_c_alpha))
+	# print(pearsonr(ind_comp,ind_c_alpha))
+	# print(pearsonr(ind_incomp,ind_inc_alpha))
+	# print(pearsonr(gr_comp,gr_c_alpha))
+	# print(pearsonr(gr_incomp,gr_inc_alpha))
 
 	# # print(stats.shapiro(gr)[1],stats.shapiro(ind)[1])
 	# print(stats.kruskal(gr,ind)[1])
+	#######
+
+	####### do pojedynczych - warunek go
+	fstr = './wybrane/newMP/Cz/MMP1_compatible_ind_go_longer_mmp.b'
+	b = BookImporter(fstr, id_min=0, id_max=10, t_min=0, t_max=1.5, atom_min=0, atom_max=1)	

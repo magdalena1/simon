@@ -17,7 +17,7 @@ class ERPStatistics(object):
 
 		super(ERPStatistics, self).__init__()
 		self.erp_type = erp_type
-		f_erp = './csv/poster/'+erp_type+'_'+channel+'_mean.csv'
+		f_erp = './csv/'+erp_type+'_'+channel+'_mean.csv'
 		self.conditions = self._get_conditions(f_erp)
 		self._remove_unknown_values()
 		self._test_condition(condition1,condition2)
@@ -128,7 +128,7 @@ if __name__ == '__main__':
 		for i,condition in enumerate(s.conditions.keys()):
 			header = condition.split('_')
 			for value in s.conditions[condition]:
-				if header[1] == 'nogo':
+				if header[1] == 'nogo':# and header[2] == 'group':
 					record = np.append(record,np.array([(electrode,header[0],header[1],header[2],value)],dtype=record.dtype))
 	record = record[1:]
 	# print(record[-1])
@@ -139,6 +139,20 @@ if __name__ == '__main__':
 	# print(mod.groupsunique)
 	# results = mod.tukeyhsd()
 
+	# g1 = []
+	# g2 = []
+	# for i in record:
+	# 	if i[1] == 'compatible':
+	# 		g1.append(i[4])
+	# 	if i[1] == 'incompatible':
+	# 		g2.append(i[4])
+
+	# print(stats.kruskal(g1,g2))
+	# data = [g1,g2]
+	# py.boxplot(data,1)
+	# py.show()
+
+########### właściwe testy 
 	g1 = []
 	g2 = []
 	for i in record:
